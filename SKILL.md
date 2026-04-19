@@ -545,6 +545,14 @@ double-clickable from disk.
 - Minimal API groups / `[Controller]` / `[ApiController]` → `Endpoint`
 - `DbContext` / EF Core → `Data`
 
+**CRITICAL — Endpoint file completeness rule:**
+Endpoint files (`*Endpoints.cs`, `*Controller.cs`) are often very long (200–1000+ lines) with dozens of routes defined inline.
+You MUST read every endpoint file **in full** — do not stop at the first page.
+For each `MapGet` / `MapPost` / `MapPut` / `MapPatch` / `MapDelete` call, extract the route string and HTTP method.
+Add every route as a separate object in the file's `endpoints[]` array.
+A file with only 1–3 endpoints listed when it defines 10+ is incomplete — re-read the file.
+Common patterns that hide many routes: route groups via `MapGroup()`, chained `.MapXxx()` calls, separate sub-groups within the same method.
+
 ### TypeScript / JavaScript (Node / Deno / Bun)
 - `package.json` deps → infer infra (pg, mongoose, redis, amqplib, @aws-sdk/*, …)
 - Next.js App Router `app/**/route.ts` → `Endpoint`; `app/**/page.tsx` → `View`
