@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "arcmap Data Schema",
+  "description": "Schema for the DATA JSON injected into the arcmap HTML template.",
+  "type": "object",
+  "required": ["meta", "architecture", "projects", "connections"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["project", "generated"],
+      "properties": {
+        "project":       { "type": "string", "description": "Human-readable project/workspace name" },
+        "generated":     { "type": "string", "format": "date", "description": "ISO date of generation (YYYY-MM-DD)" },
+        "description":   { "type": "string" },
+        "totalFiles":    { "type": "integer", "minimum": 0 },
+        "totalProjects": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "architecture": {
+      "type": "object",
+      "required": ["summary", "layers", "dataFlows"],
+      "properties": {
+        "summary":   { "type": "string", "description": "3–5 sentence plain-English system overview" },
+        "layers":    { "type": "array", "items": { "$ref": "#/definitions/Layer" } },
+        "dataFlows": { "type": "array", "items": { "$ref": "#/definitions/DataFlow" } }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Project" }
+    },
+    "connections": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Connection" }
+    },
+    "infraComponents": {
+      "type": "array",
+      "description": "External/infrastructure components (databases, queues, observability, etc.)",
+      "items": { "$ref": "#/definitions/InfraComponent" }
+    }
+  },
+  "definitions": {
+    "Layer": {
+      "type": "object",
+      "required": ["name", "description", "projects"],
+      "properties": {
+        "name":        { "type": "string" },
+        "description": { "type": "string" },
+        "projects":    { "type": "array", "items": { "type": "string" }, "description": "Array of project IDs in this layer" }
+      }
+    },
+    "DataFlow": {
+      "type": "object",
+      "required": ["from", "to", "protocol", "description"],
+      "properties": {
+        "from":        { "type": "string", "description": "Project ID, infraComponent ID, or free-text source name" },
+        "to":          { "type": "string", "description": "Project ID, infraComponent ID, or free-text sink name" },
+        "protocol":    { "type": "string", "description": "e.g. HTTP REST, AMQP, Direct DI, gRPC, WebSocket, File Import" },
+        "description": { "type": "string" }
+      }
+    },
+    "Project": {
+      "type": "object",
+      "required": ["id", "name", "shortName", "type", "color", "description"],
+      "properties": {
+        "id":          { "type": "string", "description": "Unique identifier, typically the project folder/namespace name" },
+        "name":        { "type": "string" },
+        "shortName":   { "type": "string", "description": "2–3 word display name for UI labels" },
+        "type": {
+          "type": "string",
+          "enum": ["api", "library", "worker", "frontend", "mobile", "desktop", "cli", "test"]
+        },
+        "technology":  { "type": "string", "description": "e.g. C# / .NET 9, Next.js 15 / TypeScript" },
+        "port":        { "type": ["integer", "string", "null"], "description": "HTTP listening port if applicable" },
+        "database":    { "type": ["string", "null"], "description": "Primary datastore (PostgreSQL, SQLite, MongoDB, …)" },
+        "color":       { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "description": "Hex color for UI accent" },
+        "icon": {
+          "type": "string",
+          "enum": ["cube", "cog", "server", "refresh", "database", "globe", "clock", "mobile", "desktop", "browser"],
+          "description": "Icon key used by the template renderer"
+        },
+        "description": { "type": "string" },
+        "keyPatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Up to 5 notable architecture patterns or technologies"
+        },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/SourceFile" }
+        }
+      }
+    },
+    "SourceFile": {
+      "type": "object",
+      "required": ["path", "category", "description"],
+      "properties": {
+        "path":        { "type": "string", "description": "Path relative to project root" },
+        "category": {
+          "type": "string",
+          "enum": ["Model", "Service", "Interface", "Endpoint", "Worker", "Contract", "Data",
+                   "Security", "Middleware", "Configuration", "Seeding", "Handler", "Messaging"]
+        },
+        "description": { "type": "string" },
+        "classes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ClassEntry" }
+        },
+        "methods": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/MethodEntry" }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of files or interfaces this file depends on"
+        },
+        "usedBy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of callers / consumers of this file"
+        }
+      }
+    },
+    "ClassEntry": {
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name":        { "type": "string" },
+        "type": {
+          "type": "string",
+          "description": "e.g. class, interface, enum, record, abstract class, sealed class, static class"
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "MethodEntry": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name":        { "type": "string" },
+        "signature":   { "type": "string", "description": "Full method signature including return type and parameters" },
+        "description": { "type": "string" }
+      }
+    },
+    "Connection": {
+      "type": "object",
+      "required": ["from", "to", "type", "label", "description"],
+      "properties": {
+        "from":        { "type": "string", "description": "Source project ID" },
+        "to":          { "type": "string", "description": "Target project ID or infraComponent ID" },
+        "type": {
+          "type": "string",
+          "enum": ["http", "di", "reference", "amqp", "grpc", "websocket", "file"],
+          "description": "Connection protocol/relationship type"
+        },
+        "label":       { "type": "string", "description": "Short edge label shown on graph and diagram" },
+        "description": { "type": "string" }
+      }
+    },
+    "InfraComponent": {
+      "type": "object",
+      "required": ["id", "label", "category"],
+      "properties": {
+        "id":       { "type": "string" },
+        "label":    { "type": "string", "description": "Display name (e.g. RabbitMQ)" },
+        "icon":     { "type": "string", "description": "Emoji icon" },
+        "subtitle": { "type": "string", "description": "Short detail line (e.g. AMQP · :5672)" },
+        "category": {
+          "type": "string",
+          "enum": ["messaging", "database", "cache", "observability", "storage", "auth", "gateway", "erp", "external"],
+          "description": "Component category for grouping in the infra diagram"
+        },
+        "color":    { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "notes":    { "type": "string", "description": "How this component is used by the system" }
+      }
+    }
+  }
+}

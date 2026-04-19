@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{PROJECT_NAME}} — Architecture Map</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232736;
+    --border: #2d3148; --text: #e2e4ed; --text-dim: #8b8fa3;
+    --accent: #6366f1; --accent-glow: rgba(99,102,241,.15);
+    --green: #10b981; --amber: #f59e0b; --purple: #8b5cf6;
+    --red: #ef4444; --orange: #f97316; --cyan: #06b6d4;
+    --radius: 12px; --transition: .2s cubic-bezier(.4,0,.2,1);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; overflow-x:hidden; }
+
+  /* Header */
+  .header { position:sticky; top:0; z-index:100; background:rgba(15,17,23,.9); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:14px 28px; display:flex; align-items:center; gap:14px; }
+  .header-logo { width:34px; height:34px; background:linear-gradient(135deg,var(--accent),var(--purple)); border-radius:8px; display:grid; place-items:center; font-weight:700; font-size:15px; flex-shrink:0; }
+  .header h1 { font-size:17px; font-weight:600; white-space:nowrap; }
+  .header h1 span { color:var(--text-dim); font-weight:400; margin-left:8px; font-size:13px; }
+  .view-toggle { display:flex; gap:3px; background:var(--surface); border-radius:8px; padding:3px; border:1px solid var(--border); }
+  .view-toggle button { background:none; border:none; color:var(--text-dim); padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; transition:all var(--transition); white-space:nowrap; }
+  .view-toggle button.active { background:var(--accent); color:#fff; }
+  .search-box { margin-left:auto; position:relative; }
+  .search-box::before { content:'⌕'; position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:15px; pointer-events:none; }
+  .search-box input { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 11px 7px 32px; color:var(--text); font-size:13px; width:260px; outline:none; transition:border-color var(--transition); }
+  .search-box input:focus { border-color:var(--accent); }
+
+  /* Stats */
+  .stats-bar { display:flex; gap:20px; padding:10px 22px; background:var(--surface); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .stat { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-dim); }
+  .stat-value { font-weight:700; color:var(--text); font-size:15px; }
+
+  /* Layout */
+  .app { display:flex; height:calc(100vh - 89px); }
+  .sidebar { width:290px; min-width:290px; border-right:1px solid var(--border); overflow-y:auto; background:var(--surface); }
+  .main { flex:1; overflow-y:auto; padding:22px 28px; }
+
+  /* Sidebar */
+  .sidebar-section { padding:14px; border-bottom:1px solid var(--border); }
+  .sidebar-section h3 { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:8px; }
+  .proj-item { display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:7px; cursor:pointer; transition:background var(--transition); margin-bottom:2px; border:1px solid transparent; }
+  .proj-item:hover { background:var(--surface2); }
+  .proj-item.active { background:var(--accent-glow); border-color:rgba(99,102,241,.3); }
+  .proj-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .proj-name { font-size:12px; font-weight:500; flex:1; }
+  .proj-type { font-size:10px; color:var(--text-dim); background:var(--bg); padding:2px 6px; border-radius:4px; }
+
+  /* Architecture cards */
+  .arch-summary { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:28px; font-size:13px; color:var(--text-dim); line-height:1.7; }
+  .arch-summary strong { color:var(--text); }
+  .layer-section { margin-bottom:28px; }
+  .layer-label { display:inline-flex; align-items:center; gap:7px; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:5px 14px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); margin-bottom:14px; }
+  .layer-dot { width:7px; height:7px; border-radius:50%; }
+  .project-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+  .project-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; cursor:pointer; transition:all var(--transition); position:relative; overflow:hidden; }
+  .project-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--card-color,var(--accent)); }
+  .project-card:hover { border-color:var(--card-color,var(--accent)); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.3); }
+  .card-header { display:flex; align-items:flex-start; gap:11px; margin-bottom:10px; }
+  .card-icon { width:38px; height:38px; border-radius:9px; display:grid; place-items:center; font-size:17px; flex-shrink:0; }
+  .card-title { font-size:14px; font-weight:600; }
+  .card-subtitle { font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .card-desc { font-size:12px; color:var(--text-dim); line-height:1.6; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .card-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+  .card-tag { font-size:10px; padding:2px 7px; border-radius:4px; background:var(--bg); color:var(--text-dim); border:1px solid var(--border); }
+
+  /* Data Flow */
+  .flow-container { max-width:860px; display:flex; flex-direction:column; gap:20px; }
+  .flow-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; display:flex; align-items:flex-start; gap:14px; transition:border-color var(--transition); }
+  .flow-item:hover { border-color:var(--accent); }
+  .flow-arrow { display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; min-width:90px; }
+  .flow-node { font-size:10px; font-weight:600; padding:4px 9px; border-radius:5px; background:var(--bg); border:1px solid var(--border); text-align:center; white-space:nowrap; }
+  .flow-line { width:2px; height:18px; background:var(--accent); position:relative; }
+  .flow-line::after { content:'▼'; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); font-size:7px; color:var(--accent); }
+  .flow-proto { font-size:9px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; }
+  .flow-desc { font-size:12px; color:var(--text-dim); line-height:1.6; flex:1; }
+  .flow-desc strong { color:var(--text); }
+
+  /* Detail panel */
+  .detail-panel { position:fixed; top:89px; right:0; width:500px; height:calc(100vh - 89px); background:var(--surface); border-left:1px solid var(--border); z-index:50; transform:translateX(100%); transition:transform .3s cubic-bezier(.4,0,.2,1); overflow-y:auto; box-shadow:-8px 0 32px rgba(0,0,0,.3); }
+  .detail-panel.open { transform:translateX(0); }
+  .detail-header { position:sticky; top:0; z-index:10; background:var(--surface); border-bottom:1px solid var(--border); padding:18px 22px; display:flex; align-items:center; gap:12px; }
+  .detail-close { width:30px; height:30px; border-radius:7px; background:var(--bg); border:1px solid var(--border); color:var(--text-dim); display:grid; place-items:center; cursor:pointer; font-size:15px; transition:all var(--transition); }
+  .detail-close:hover { color:var(--text); border-color:var(--text-dim); }
+  .detail-content { padding:22px; }
+  .detail-section { margin-bottom:22px; }
+  .detail-section-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .detail-desc { font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:14px; }
+
+  /* File items */
+  .file-item { background:var(--bg); border:1px solid var(--border); border-radius:7px; margin-bottom:7px; overflow:hidden; transition:border-color var(--transition); }
+  .file-item:hover { border-color:var(--accent); }
+  .file-header { display:flex; align-items:center; gap:9px; padding:9px 13px; cursor:pointer; user-select:none; }
+  .file-icon { font-size:13px; color:var(--text-dim); }
+  .file-name { font-size:12px; font-weight:500; font-family:'Cascadia Code','Fira Code',monospace; flex:1; }
+  .file-cat { font-size:9px; font-weight:600; padding:2px 7px; border-radius:3px; text-transform:uppercase; letter-spacing:.3px; }
+  .file-cat.Model      { background:rgba(99,102,241,.15); color:#818cf8; }
+  .file-cat.Service    { background:rgba(16,185,129,.15); color:#34d399; }
+  .file-cat.Interface  { background:rgba(139,92,246,.15); color:#a78bfa; }
+  .file-cat.Endpoint   { background:rgba(245,158,11,.15); color:#fbbf24; }
+  .file-cat.Worker     { background:rgba(249,115,22,.15); color:#fb923c; }
+  .file-cat.Contract   { background:rgba(236,72,153,.15); color:#f472b6; }
+  .file-cat.Data       { background:rgba(6,182,212,.15); color:#22d3ee; }
+  .file-cat.Security   { background:rgba(239,68,68,.15); color:#f87171; }
+  .file-cat.Middleware { background:rgba(168,85,247,.15); color:#c084fc; }
+  .file-cat.Configuration { background:rgba(107,114,128,.15); color:#9ca3af; }
+  .file-cat.Seeding    { background:rgba(20,184,166,.15); color:#2dd4bf; }
+  .file-cat.Handler    { background:rgba(249,115,22,.15); color:#fb923c; }
+  .file-cat.Messaging  { background:rgba(236,72,153,.15); color:#f472b6; }
+  .file-chevron { font-size:11px; color:var(--text-dim); transition:transform var(--transition); }
+  .file-item.expanded .file-chevron { transform:rotate(90deg); }
+  .file-body { display:none; padding:0 13px 13px; border-top:1px solid var(--border); }
+  .file-item.expanded .file-body { display:block; }
+  .file-desc { font-size:11px; color:var(--text-dim); line-height:1.6; margin:9px 0; }
+
+  /* Classes */
+  .class-item { display:flex; align-items:flex-start; gap:7px; padding:5px 0; border-bottom:1px dashed rgba(45,49,72,.5); }
+  .class-item:last-child { border-bottom:none; }
+  .class-badge { font-size:8px; font-weight:700; padding:2px 5px; border-radius:3px; text-transform:uppercase; white-space:nowrap; flex-shrink:0; margin-top:2px; }
+  .class-badge.class     { background:rgba(16,185,129,.15); color:#34d399; }
+  .class-badge.interface { background:rgba(139,92,246,.15); color:#a78bfa; }
+  .class-badge.enum      { background:rgba(245,158,11,.15); color:#fbbf24; }
+  .class-badge.record    { background:rgba(236,72,153,.15); color:#f472b6; }
+  .class-badge.abstract  { background:rgba(6,182,212,.15); color:#22d3ee; }
+  .class-badge.sealed    { background:rgba(239,68,68,.15); color:#f87171; }
+  .class-badge.static    { background:rgba(107,114,128,.15); color:#9ca3af; }
+  .class-info { flex:1; min-width:0; }
+  .class-name { font-size:11px; font-weight:600; font-family:'Cascadia Code','Fira Code',monospace; }
+  .class-desc { font-size:10px; color:var(--text-dim); margin-top:2px; }
+
+  /* Methods */
+  .method-list { margin-top:9px; }
+  .method-list-title { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); margin-bottom:5px; }
+  .method-item { padding:5px 7px; background:rgba(99,102,241,.04); border-radius:4px; margin-bottom:3px; border-left:2px solid var(--accent); }
+  .method-sig { font-size:10px; font-weight:500; font-family:'Cascadia Code','Fira Code',monospace; color:#818cf8; word-break:break-all; }
+  .method-desc { font-size:10px; color:var(--text-dim); margin-top:2px; }
+
+  /* Deps */
+  .dep-section { margin-top:10px; }
+  .dep-label { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); margin-bottom:5px; }
+  .dep-chips { display:flex; flex-wrap:wrap; gap:3px; }
+  .dep-chip { font-size:10px; padding:2px 7px; border-radius:3px; background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); }
+  .dep-chip.out { border-left:2px solid var(--green); }
+  .dep-chip.in  { border-left:2px solid var(--amber); }
+
+  /* Connections */
+  .conn-item { background:var(--bg); border:1px solid var(--border); border-radius:7px; padding:11px 13px; margin-bottom:7px; }
+  .conn-nodes { display:flex; align-items:center; gap:7px; margin-bottom:6px; }
+  .conn-node { font-size:11px; font-weight:600; padding:3px 9px; border-radius:5px; background:var(--surface2); }
+  .conn-type { font-size:9px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; }
+  .conn-desc { font-size:11px; color:var(--text-dim); line-height:1.5; margin-top:5px; }
+
+  /* Patterns */
+  .pattern-item { display:flex; align-items:center; gap:7px; padding:5px 0; }
+  .pattern-dot { width:5px; height:5px; border-radius:50%; background:var(--accent); }
+  .pattern-name { font-size:12px; }
+
+  /* Graph */
+  .graph-container { width:100%; height:calc(100vh - 139px); position:relative; overflow:hidden; background:radial-gradient(circle at center,rgba(99,102,241,.03) 0%,transparent 70%); }
+  .graph-container svg { width:100%; height:100%; }
+  .graph-node { cursor:pointer; }
+  .graph-node circle { transition:r var(--transition),stroke-width var(--transition); }
+  .graph-node:hover circle { stroke-width:3; }
+  .graph-node text { fill:var(--text); font-size:10px; font-weight:600; text-anchor:middle; pointer-events:none; }
+  .graph-edge { stroke:var(--border); stroke-width:1.5; fill:none; }
+  .graph-edge.http { stroke:var(--green); stroke-dasharray:6 3; }
+  .graph-edge.di   { stroke:var(--purple); }
+  .graph-edge.reference { stroke:var(--text-dim); stroke-dasharray:3 3; }
+  .graph-edge.amqp { stroke:var(--orange); stroke-dasharray:8 4; }
+  .graph-edge.grpc { stroke:var(--cyan); stroke-dasharray:4 2; }
+  .graph-edge-label { fill:var(--text-dim); font-size:9px; text-anchor:middle; }
+  .graph-legend { position:absolute; bottom:14px; left:14px; background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:10px 14px; font-size:10px; color:var(--text-dim); }
+  .legend-item { display:flex; align-items:center; gap:7px; margin-bottom:4px; }
+  .legend-item:last-child { margin-bottom:0; }
+  .legend-line { width:22px; height:2px; }
+
+  /* Infra Diagram */
+  .infra-wrap { width:100%; overflow:auto; padding:16px; min-height:calc(100vh - 139px); background:radial-gradient(ellipse at 50% 20%,rgba(99,102,241,.04) 0%,transparent 60%); }
+  .infra-svg { display:block; margin:0 auto; }
+  .infra-zone { rx:12; fill:rgba(255,255,255,.02); stroke:rgba(255,255,255,.06); stroke-width:1; }
+  .infra-zone-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; fill:rgba(255,255,255,.2); }
+  .inode { cursor:pointer; }
+  .inode-box { rx:9; stroke-width:1.5; }
+  .inode:hover .inode-box { filter:brightness(1.25); }
+  .inode-icon { font-size:16px; dominant-baseline:middle; text-anchor:middle; }
+  .inode-title { font-size:10px; font-weight:700; dominant-baseline:middle; text-anchor:middle; fill:#fff; }
+  .inode-sub { font-size:8px; dominant-baseline:middle; text-anchor:middle; fill:rgba(255,255,255,.5); }
+  .iedge { fill:none; stroke-width:1.5; }
+  .iedge-label { font-size:8px; font-weight:600; text-anchor:middle; dominant-baseline:middle; fill:rgba(255,255,255,.45); }
+  .infra-legend { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin-top:12px; font-size:10px; color:var(--text-dim); }
+  .infra-legend-item { display:flex; align-items:center; gap:5px; }
+  .infra-legend-dot { width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+
+  /* Misc */
+  .breadcrumb { display:flex; align-items:center; gap:7px; margin-bottom:16px; font-size:12px; color:var(--text-dim); }
+  .no-results { text-align:center; padding:48px 24px; color:var(--text-dim); }
+  .no-results-icon { font-size:42px; margin-bottom:14px; opacity:.3; }
+
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--text-dim); }
+
+  @media (max-width:860px) {
+    .sidebar { display:none; }
+    .detail-panel { width:100%; }
+    .project-cards { grid-template-columns:1fr; }
+    .search-box input { width:180px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">◈</div>
+  <h1 id="appTitle">Project<span>Architecture Map</span></h1>
+  <div class="view-toggle">
+    <button class="active" data-view="architecture" onclick="switchView('architecture')">Architecture</button>
+    <button data-view="diagram"        onclick="switchView('diagram')">Infra Diagram</button>
+    <button data-view="graph"          onclick="switchView('graph')">Graph</button>
+    <button data-view="flows"          onclick="switchView('flows')">Data Flows</button>
+  </div>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search files, classes, methods…" oninput="handleSearch(this.value)">
+  </div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main" id="mainContent"></div>
+</div>
+
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-header">
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+    <div>
+      <div id="detailTitle" style="font-size:15px;font-weight:600;"></div>
+      <div id="detailSubtitle" style="font-size:11px;color:var(--text-dim);margin-top:2px;"></div>
+    </div>
+  </div>
+  <div class="detail-content" id="detailContent"></div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const DATA = {{DATA_JSON}};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentView = 'architecture';
+let selectedProject = null;
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+function init() {
+  document.getElementById('appTitle').innerHTML =
+    `${DATA.meta.project}<span>Architecture Map</span>`;
+  document.title = `${DATA.meta.project} — Architecture Map`;
+  renderStats();
+  renderSidebar();
+  renderArchitecture();
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const totalFiles    = DATA.projects.reduce((s,p) => s+(p.files?p.files.length:0), 0);
+  const totalClasses  = DATA.projects.reduce((s,p) => s+(p.files||[]).reduce((fs,f) => fs+(f.classes?f.classes.length:0),0), 0);
+  const infraCount    = (DATA.infraComponents||[]).length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><span class="stat-value">${DATA.projects.length}</span> Projects</div>
+    <div class="stat"><span class="stat-value">${totalFiles}</span> Files</div>
+    <div class="stat"><span class="stat-value">${totalClasses}</span> Classes</div>
+    <div class="stat"><span class="stat-value">${DATA.connections.length}</span> Connections</div>
+    <div class="stat"><span class="stat-value">${DATA.architecture.dataFlows.length}</span> Data Flows</div>
+    ${infraCount ? `<div class="stat"><span class="stat-value">${infraCount}</span> Infra Components</div>` : ''}
+  `;
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  let html = '<div class="sidebar-section"><h3>Projects</h3>';
+  DATA.projects.forEach(p => {
+    html += `<div class="proj-item ${selectedProject===p.id?'active':''}" onclick="selectProject('${p.id}')">
+      <div class="proj-dot" style="background:${p.color}"></div>
+      <div class="proj-name">${p.shortName}</div>
+      <div class="proj-type">${p.type}</div>
+    </div>`;
+  });
+  html += '</div><div class="sidebar-section"><h3>Connections</h3>';
+  DATA.connections.forEach(c => {
+    const from = DATA.projects.find(p=>p.id===c.from);
+    const to   = DATA.projects.find(p=>p.id===c.to);
+    if (!from||!to) return;
+    html += `<div class="proj-item" onclick="showConnectionDetail('${c.from}','${c.to}')">
+      <div class="proj-dot" style="background:${from.color}"></div>
+      <div class="proj-name" style="font-size:10px">${from.shortName} → ${to.shortName}</div>
+      <div class="proj-type">${c.type}</div>
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('sidebar').innerHTML = html;
+}
+
+// ── View switch ───────────────────────────────────────────────────────────────
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-toggle button').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === view));
+  if (view==='architecture') renderArchitecture();
+  else if (view==='diagram') renderInfraDiagram();
+  else if (view==='graph')   renderGraph();
+  else if (view==='flows')   renderFlows();
+  closeDetail();
+}
+
+// ── Architecture view ─────────────────────────────────────────────────────────
+function renderArchitecture() {
+  const layerColors = ['#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#f97316'];
+  let html = `<div class="arch-summary"><strong>System Overview:</strong> ${DATA.architecture.summary}</div>`;
+  DATA.architecture.layers.forEach((layer, i) => {
+    html += `<div class="layer-section">
+      <div class="layer-label"><div class="layer-dot" style="background:${layerColors[i%layerColors.length]}"></div>${layer.name}</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px;margin-left:4px">${layer.description}</div>
+      <div class="project-cards">`;
+    layer.projects.forEach(pid => {
+      const p = DATA.projects.find(x=>x.id===pid||x.name===pid);
+      if (p) html += renderProjectCard(p);
+    });
+    html += '</div></div>';
+  });
+  document.getElementById('mainContent').innerHTML = html;
+}
+
+function renderProjectCard(p) {
+  const icons = {cube:'◆',cog:'⚙',server:'▣',refresh:'⟳',database:'◉',globe:'◎',clock:'⏲',mobile:'📱',desktop:'🖥',browser:'🌐'};
+  return `<div class="project-card" style="--card-color:${p.color}" onclick="openProjectDetail('${p.id}')">
+    <div class="card-header">
+      <div class="card-icon" style="background:${p.color}20;color:${p.color}">${icons[p.icon]||'◆'}</div>
+      <div>
+        <div class="card-title">${p.name}</div>
+        <div class="card-subtitle">${p.technology||''}${p.port?' · :'+p.port:''}${p.database?' · '+p.database:''}</div>
+      </div>
+    </div>
+    <div class="card-desc">${p.description}</div>
+    <div class="card-tags">
+      ${p.files?.length?`<span class="card-tag">${p.files.length} files</span>`:''}
+      ${(p.keyPatterns||[]).slice(0,3).map(t=>`<span class="card-tag">${t}</span>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── Infra Diagram ─────────────────────────────────────────────────────────────
+function renderInfraDiagram() {
+  const W=1160, H=820;
+  const defs = `<defs>
+    <marker id="af" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#4b5563"/>
+    </marker>
+    <marker id="ab" viewBox="0 0 8 8" refX="1" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M8,0 L0,4 L8,8 Z" fill="#4b5563"/>
+    </marker>
+  </defs>`;
+
+  // Cluster projects by type
+  const byType = {};
+  DATA.projects.forEach(p => {
+    const t = p.type||'library';
+    (byType[t]||(byType[t]=[])).push(p);
+  });
+  const byLayer = {};
+  DATA.architecture.layers.forEach((l,i) => {
+    l.projects.forEach(pid => {
+      const p = DATA.projects.find(x=>x.id===pid||x.name===pid);
+      if (p) byLayer[p.id]=i;
+    });
+  });
+
+  // Compute node positions — stack layers vertically
+  const layerCount = DATA.architecture.layers.length;
+  const infraComponents = DATA.infraComponents || [];
+  const totalH = H - 100; // leave room
+  const layerH = totalH / (layerCount + (infraComponents.length?1:0) + 1);
+
+  const positions = {};
+  const layerNodes = {};
+  DATA.projects.forEach(p => {
+    const layer = byLayer[p.id]??0;
+    (layerNodes[layer]||(layerNodes[layer]=[])).push(p);
+  });
+  const nodeW=130, nodeH=54;
+  Object.entries(layerNodes).forEach(([layer,nodes])=>{
+    const y=(parseInt(layer)+1)*layerH+50;
+    const step=W/(nodes.length+1);
+    nodes.forEach((p,i)=>{ positions[p.id]={x:(i+1)*step,y}; });
+  });
+  // Infra components row at bottom
+  const infraY = (layerCount+1)*layerH+50;
+  const infraPositions = {};
+  infraComponents.forEach((ic,i)=>{
+    infraPositions[ic.id]={x:(i+1)*(W/(infraComponents.length+1)),y:infraY};
+  });
+
+  // Render zones
+  let zones='';
+  DATA.architecture.layers.forEach((l,i)=>{
+    const nodes=layerNodes[i]||[];
+    if(!nodes.length) return;
+    const ys = nodes.map(p=>positions[p.id]?.y||0);
+    const minY=Math.min(...ys)-nodeH/2-18;
+    const maxY=Math.max(...ys)+nodeH/2+12;
+    const xs = nodes.map(p=>positions[p.id]?.x||0);
+    const minX=Math.min(...xs)-nodeW/2-16;
+    const maxX=Math.max(...xs)+nodeW/2+16;
+    const layerColors=['#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#f97316'];
+    const col=layerColors[i%layerColors.length];
+    zones+=`<rect class="infra-zone" x="${minX}" y="${minY}" width="${maxX-minX}" height="${maxY-minY}" rx="12" fill="${col}06" stroke="${col}20"/>
+      <text class="infra-zone-label" x="${minX+12}" y="${minY+16}" fill="${col}55">${l.name.toUpperCase()}</text>`;
+  });
+  if(infraComponents.length){
+    const infraX0=infraPositions[infraComponents[0].id]?.x||0;
+    const infraXN=infraPositions[infraComponents[infraComponents.length-1].id]?.x||W;
+    zones+=`<rect class="infra-zone" x="${infraX0-80}" y="${infraY-36}" width="${infraXN-infraX0+160}" height="82" rx="12" fill="#f9731606" stroke="#f9731620"/>
+      <text class="infra-zone-label" x="${infraX0-68}" y="${infraY-20}" fill="#f9731655">INFRASTRUCTURE</text>`;
+  }
+
+  // Render edges
+  let edges='';
+  DATA.connections.forEach(c=>{
+    const from=positions[c.from]||infraPositions[c.from];
+    const to=positions[c.to]||infraPositions[c.to];
+    if(!from||!to) return;
+    const mx=(from.x+to.x)/2, my=(from.y+to.y)/2-12;
+    const edgeColors={http:'#10b981',di:'#8b5cf6',reference:'#6b7280',amqp:'#f97316',grpc:'#06b6d4',file:'#f59e0b'};
+    const edgeDash={http:'6 3',di:'',reference:'3 3',amqp:'8 4',grpc:'4 2',file:'5 3'};
+    const col=edgeColors[c.type]||'#4b5563';
+    const da=edgeDash[c.type]?`stroke-dasharray="${edgeDash[c.type]}"`:'';
+    edges+=`<path class="iedge" d="M${from.x},${from.y} Q${mx},${my} ${to.x},${to.y}" stroke="${col}" ${da} marker-end="url(#af)"/>
+      <rect x="${mx-18}" y="${my-9}" width="36" height="12" rx="3" fill="#0f1117" opacity=".8"/>
+      <text class="iedge-label" x="${mx}" y="${my-3}" fill="${col}">${c.label||c.type}</text>`;
+  });
+
+  // Render project nodes
+  let nodes='';
+  DATA.projects.forEach(p=>{
+    const pos=positions[p.id];
+    if(!pos) return;
+    nodes+=`<g class="inode" onclick="openProjectDetail('${p.id}')" transform="translate(${pos.x},${pos.y})">
+      <rect class="inode-box" width="${nodeW}" height="${nodeH}" x="-${nodeW/2}" y="-${nodeH/2}" fill="${p.color}15" stroke="${p.color}"/>
+      <text class="inode-title" y="-8">${p.shortName}</text>
+      <text class="inode-sub" y="8">${p.technology||p.type}</text>
+      ${p.port?`<rect rx="3" x="${nodeW/2-32}" y="${-nodeH/2+2}" width="30" height="12" fill="${p.color}22" stroke="${p.color}" stroke-width="1"/>
+        <text style="font-size:7px;font-weight:700;dominant-baseline:middle;text-anchor:middle" x="${nodeW/2-17}" y="${-nodeH/2+8}" fill="${p.color}">:${p.port}</text>`:''}
+    </g>`;
+  });
+
+  // Infra component nodes
+  infraComponents.forEach(ic=>{
+    const pos=infraPositions[ic.id];
+    if(!pos) return;
+    nodes+=`<g class="inode" transform="translate(${pos.x},${pos.y})">
+      <rect class="inode-box" width="110" height="52" x="-55" y="-26" fill="${ic.color||'#f97316'}15" stroke="${ic.color||'#f97316'}"/>
+      <text class="inode-icon" y="-8">${ic.icon||'⚙'}</text>
+      <text class="inode-title" y="8">${ic.label}</text>
+      <text class="inode-sub" y="19">${ic.subtitle||ic.category||''}</text>
+    </g>`;
+  });
+
+  const svg=`<svg class="infra-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${defs}${zones}${edges}${nodes}
+  </svg>`;
+
+  const typeColors={'api':'#f59e0b','library':'#a855f7','worker':'#f59e0b','frontend':'#6366f1','mobile':'#6366f1','desktop':'#6366f1'};
+  const legend=`<div class="infra-legend">
+    <div class="infra-legend-item"><div class="infra-legend-dot" style="background:#10b981"></div>HTTP</div>
+    <div class="infra-legend-item"><div class="infra-legend-dot" style="background:#8b5cf6"></div>DI</div>
+    <div class="infra-legend-item"><div class="infra-legend-dot" style="background:#6b7280"></div>Reference</div>
+    <div class="infra-legend-item"><div class="infra-legend-dot" style="background:#f97316"></div>AMQP</div>
+    <div class="infra-legend-item"><div class="infra-legend-dot" style="background:#06b6d4"></div>gRPC</div>
+    <div class="infra-legend-item" style="gap:9px"><svg width="32" height="8"><line x1="0" y1="4" x2="32" y2="4" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 3"/></svg>dashed = async/external</div>
+  </div>`;
+
+  document.getElementById('mainContent').innerHTML=`<div class="infra-wrap">${svg}${legend}</div>`;
+}
+
+// ── Graph view ────────────────────────────────────────────────────────────────
+function renderGraph() {
+  const main = document.getElementById('mainContent');
+  const W = main.clientWidth - 40;
+  const H = window.innerHeight - 170;
+
+  const layerMap={};
+  DATA.architecture.layers.forEach((l,i)=>l.projects.forEach(pid=>{
+    const p=DATA.projects.find(x=>x.id===pid||x.name===pid);
+    if(p) layerMap[p.id]=i;
+  }));
+
+  const layerCount=DATA.architecture.layers.length;
+  const layerH=H/(layerCount+1);
+  const positions={};
+  const layerNodes={};
+  DATA.projects.forEach(p=>{
+    const layer=layerMap[p.id]??0;
+    (layerNodes[layer]||(layerNodes[layer]=[])).push(p);
+  });
+  Object.entries(layerNodes).forEach(([layer,nodes])=>{
+    const y=(parseInt(layer)+1)*layerH;
+    const step=W/(nodes.length+1);
+    nodes.forEach((p,i)=>{ positions[p.id]={(x:(i+1)*step,y)}; });
+  });
+
+  let edges='';
+  DATA.connections.forEach(c=>{
+    const from=positions[c.from], to=positions[c.to];
+    if(!from||!to) return;
+    const mx=(from.x+to.x)/2, my=(from.y+to.y)/2-14;
+    edges+=`<path class="graph-edge ${c.type}" d="M${from.x},${from.y} Q${mx},${my} ${to.x},${to.y}" marker-end="url(#garrow)"/>
+      <text class="graph-edge-label" x="${mx}" y="${my-5}">${c.label||c.type}</text>`;
+  });
+
+  let nodes='';
+  DATA.projects.forEach(p=>{
+    const pos=positions[p.id];
+    if(!pos) return;
+    const words=p.shortName.split(' ');
+    nodes+=`<g class="graph-node" onclick="openProjectDetail('${p.id}')" transform="translate(${pos.x},${pos.y})">
+      <circle r="34" fill="${p.color}18" stroke="${p.color}" stroke-width="2"/>
+      <text dy="-4" style="font-size:9px">${words[0]}</text>
+      <text dy="9" style="font-size:8px;fill:var(--text-dim)">${words.slice(1).join(' ')}</text>
+    </g>`;
+  });
+
+  main.innerHTML=`<div class="graph-container">
+    <svg viewBox="0 0 ${W} ${H}">
+      <defs><marker id="garrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M0,0 L8,4 L0,8 Z" fill="var(--accent)"/>
+      </marker></defs>
+      ${edges}${nodes}
+    </svg>
+    <div class="graph-legend">
+      <div class="legend-item"><div class="legend-line" style="background:repeating-linear-gradient(90deg,#10b981 0,#10b981 6px,transparent 6px,transparent 9px)"></div>HTTP</div>
+      <div class="legend-item"><div class="legend-line" style="background:#8b5cf6"></div>DI</div>
+      <div class="legend-item"><div class="legend-line" style="background:repeating-linear-gradient(90deg,#6b7280 0,#6b7280 3px,transparent 3px,transparent 6px)"></div>Reference</div>
+      <div class="legend-item"><div class="legend-line" style="background:repeating-linear-gradient(90deg,#f97316 0,#f97316 8px,transparent 8px,transparent 12px)"></div>AMQP</div>
+    </div>
+  </div>`;
+}
+
+// ── Data Flows ────────────────────────────────────────────────────────────────
+function renderFlows() {
+  let html=`<div class="flow-container">
+    <h2 style="font-size:17px;margin-bottom:6px">Data Flow Map</h2>
+    <p style="font-size:12px;color:var(--text-dim);margin-bottom:18px">End-to-end data movement through the system.</p>`;
+  DATA.architecture.dataFlows.forEach(flow=>{
+    const from=DATA.projects.find(p=>p.id===flow.from||p.name===flow.from);
+    const to=DATA.projects.find(p=>p.id===flow.to||p.name===flow.to);
+    const fColor=from?.color||'var(--text-dim)';
+    const tColor=to?.color||'var(--text-dim)';
+    html+=`<div class="flow-item">
+      <div class="flow-arrow">
+        <div class="flow-node" style="border-color:${fColor};color:${fColor}">${from?.shortName||flow.from}</div>
+        <div class="flow-line"></div>
+        <div class="flow-proto">${flow.protocol}</div>
+        <div class="flow-line"></div>
+        <div class="flow-node" style="border-color:${tColor};color:${tColor}">${to?.shortName||flow.to}</div>
+      </div>
+      <div class="flow-desc">${flow.description}</div>
+    </div>`;
+  });
+  html+='</div>';
+  document.getElementById('mainContent').innerHTML=html;
+}
+
+// ── Project detail ────────────────────────────────────────────────────────────
+function selectProject(id) { selectedProject=id; renderSidebar(); openProjectDetail(id); }
+
+function openProjectDetail(id) {
+  const p=DATA.projects.find(x=>x.id===id);
+  if(!p) return;
+  selectedProject=id; renderSidebar();
+  document.getElementById('detailTitle').textContent=p.name;
+  document.getElementById('detailSubtitle').textContent=`${p.technology||''}${p.port?' · :'+p.port:''}${p.database?' · '+p.database:''}`;
+
+  let html=`<div class="detail-section"><div class="detail-section-title">Description</div><div class="detail-desc">${p.description}</div></div>`;
+
+  if(p.keyPatterns?.length){
+    html+=`<div class="detail-section"><div class="detail-section-title">Architecture Patterns</div>`;
+    p.keyPatterns.forEach(pat=>{html+=`<div class="pattern-item"><div class="pattern-dot" style="background:${p.color}"></div><span class="pattern-name">${pat}</span></div>`;});
+    html+=`</div>`;
+  }
+
+  const conns=DATA.connections.filter(c=>c.from===id||c.to===id);
+  if(conns.length){
+    html+=`<div class="detail-section"><div class="detail-section-title">Connections</div>`;
+    conns.forEach(c=>{
+      const otherId=c.from===id?c.to:c.from;
+      const other=DATA.projects.find(x=>x.id===otherId);
+      const dir=c.from===id?'→':'←';
+      html+=`<div class="conn-item">
+        <div class="conn-nodes">
+          <span class="conn-node" style="color:${p.color}">${p.shortName}</span>
+          <span style="color:var(--accent)">${dir}</span>
+          <span class="conn-node" style="color:${other?.color||'var(--text)'}">${other?.shortName||otherId}</span>
+          <span class="conn-type">${c.type}</span>
+        </div>
+        <div class="conn-desc">${c.description}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  if(p.files?.length){
+    html+=`<div class="detail-section"><div class="detail-section-title">Files (${p.files.length})</div>`;
+    p.files.forEach((f,fi)=>{ html+=renderFileItem(f,fi); });
+    html+=`</div>`;
+  }
+
+  document.getElementById('detailContent').innerHTML=html;
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function renderFileItem(f, idx) {
+  const cat=f.category||'File';
+  let catClass=cat.replace(/\s+/g,'');
+  if(catClass.includes('Entry')) catClass='Configuration';
+  let html=`<div class="file-item" id="file-${idx}">
+    <div class="file-header" onclick="toggleFile(${idx})">
+      <span class="file-icon">📄</span>
+      <span class="file-name">${(f.path||'').split('/').pop()||f.path}</span>
+      <span class="file-cat ${catClass}">${cat}</span>
+      <span class="file-chevron">▸</span>
+    </div>
+    <div class="file-body">
+      <div style="font-size:10px;color:var(--text-dim);font-family:monospace;margin-bottom:7px">${f.path||''}</div>
+      <div class="file-desc">${f.description||''}</div>`;
+
+  if(f.classes?.length){
+    html+=`<div class="method-list-title" style="margin-top:8px">Classes & Types</div>`;
+    f.classes.forEach(c=>{
+      const tp=(c.type||'class').toLowerCase();
+      let badge='class';
+      if(tp.includes('interface')) badge='interface';
+      else if(tp.includes('abstract')) badge='abstract';
+      else if(tp.includes('sealed')) badge='sealed';
+      else if(tp.includes('enum')) badge='enum';
+      else if(tp.includes('record')) badge='record';
+      else if(tp.includes('static')) badge='static';
+      html+=`<div class="class-item">
+        <span class="class-badge ${badge}">${badge}</span>
+        <div class="class-info"><div class="class-name">${c.name}</div><div class="class-desc">${c.description||''}</div></div>
+      </div>`;
+    });
+  }
+
+  if(f.methods?.length){
+    html+=`<div class="method-list"><div class="method-list-title">Methods</div>`;
+    f.methods.forEach(m=>{
+      html+=`<div class="method-item"><div class="method-sig">${m.signature||m.name}</div><div class="method-desc">${m.description||''}</div></div>`;
+    });
+    html+=`</div>`;
+  }
+
+  const deps=[...(f.dependencies||[])], usedBy=[...(f.usedBy||[])];
+  if(deps.length||usedBy.length){
+    html+=`<div class="dep-section">`;
+    if(deps.length){ html+=`<div class="dep-label">Depends On</div><div class="dep-chips">${deps.map(d=>`<span class="dep-chip out">${d}</span>`).join('')}</div>`; }
+    if(usedBy.length){ html+=`<div class="dep-label" style="margin-top:7px">Used By</div><div class="dep-chips">${usedBy.map(d=>`<span class="dep-chip in">${d}</span>`).join('')}</div>`; }
+    html+=`</div>`;
+  }
+  html+=`</div></div>`;
+  return html;
+}
+
+function toggleFile(idx) { document.getElementById('file-'+idx).classList.toggle('expanded'); }
+function closeDetail()   { document.getElementById('detailPanel').classList.remove('open'); }
+
+// ── Connection detail ─────────────────────────────────────────────────────────
+function showConnectionDetail(fromId, toId) {
+  const c=DATA.connections.find(x=>x.from===fromId&&x.to===toId);
+  if(!c) return;
+  const from=DATA.projects.find(p=>p.id===fromId);
+  const to=DATA.projects.find(p=>p.id===toId);
+  document.getElementById('detailTitle').textContent=`${from?.shortName||fromId} → ${to?.shortName||toId}`;
+  document.getElementById('detailSubtitle').textContent=`${c.type.toUpperCase()} connection`;
+  let html=`<div class="detail-section">
+    <div class="detail-section-title">Connection Details</div>
+    <div class="detail-desc"><strong>Protocol:</strong> ${c.type.toUpperCase()}</div>
+    <div class="detail-desc">${c.description}</div>
+  </div>`;
+  const flow=DATA.architecture.dataFlows.find(f=>(f.from===fromId||f.from===from?.name)&&(f.to===toId||f.to===to?.name));
+  if(flow){ html+=`<div class="detail-section"><div class="detail-section-title">Data Flow</div><div class="detail-desc"><strong>Protocol:</strong> ${flow.protocol}</div><div class="detail-desc">${flow.description}</div></div>`; }
+  html+=`<div class="detail-section"><div class="detail-section-title">Navigate</div><div style="display:flex;gap:7px">
+    <button onclick="openProjectDetail('${fromId}')" style="padding:7px 14px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:${from?.color||'var(--text)'};cursor:pointer;font-size:12px">${from?.shortName||fromId}</button>
+    <button onclick="openProjectDetail('${toId}')"   style="padding:7px 14px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:${to?.color||'var(--text)'};cursor:pointer;font-size:12px">${to?.shortName||toId}</button>
+  </div></div>`;
+  document.getElementById('detailContent').innerHTML=html;
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+function handleSearch(query) {
+  if(!query||query.length<2){ if(currentView==='architecture') renderArchitecture(); return; }
+  const q=query.toLowerCase(), results=[];
+  DATA.projects.forEach(p=>{
+    (p.files||[]).forEach(f=>{
+      let score=0;
+      if((f.path||'').toLowerCase().includes(q)) score+=10;
+      if((f.description||'').toLowerCase().includes(q)) score+=5;
+      (f.classes||[]).forEach(c=>{ if(c.name.toLowerCase().includes(q)) score+=8; if((c.description||'').toLowerCase().includes(q)) score+=3; });
+      (f.methods||[]).forEach(m=>{ if(m.name.toLowerCase().includes(q)) score+=8; if((m.signature||'').toLowerCase().includes(q)) score+=4; if((m.description||'').toLowerCase().includes(q)) score+=2; });
+      if(score>0) results.push({project:p,file:f,score});
+    });
+  });
+  results.sort((a,b)=>b.score-a.score);
+  const main=document.getElementById('mainContent');
+  if(!results.length){ main.innerHTML=`<div class="no-results"><div class="no-results-icon">🔍</div><div>No results for "${query}"</div></div>`; return; }
+  let html=`<div class="breadcrumb"><span>Search: "${query}" — ${results.length} result${results.length!==1?'s':''}</span></div>`;
+  results.slice(0,30).forEach((r,i)=>{
+    html+=`<div style="margin-bottom:7px"><div style="font-size:10px;color:${r.project.color};font-weight:600;margin-bottom:3px">${r.project.shortName}</div>${renderFileItem(r.file,'s'+i)}</div>`;
+  });
+  main.innerHTML=html;
+}
+
+// ── Keyboard ──────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeDetail();
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){ e.preventDefault(); document.getElementById('searchInput').focus(); }
+});
+
+init();
+</script>
+</body>
+</html>
