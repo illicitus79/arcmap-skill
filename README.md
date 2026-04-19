@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Works with Claude Code](https://img.shields.io/badge/Claude%20Code-compatible-6366f1)](https://claude.com/claude-code)
+[![Works with Codex](https://img.shields.io/badge/OpenAI%20Codex-compatible-10a37f)](https://github.com/openai/codex)
 [![Works with Copilot](https://img.shields.io/badge/GitHub%20Copilot-compatible-0ea5e9)](https://github.com/features/copilot)
 [![Language-agnostic](https://img.shields.io/badge/languages-any-10b981)](#what-it-analyses)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-f97316)](#contributing)
@@ -11,9 +12,10 @@
 > One command → one HTML file → open in any browser. **No server, no CDN, no dependencies.**
 > Double-click and it works — even offline, even from a USB stick, even when your corp proxy blocks everything.
 
-arcmap is an AI-agent skill (for Claude Code, GitHub Copilot, Cursor, or any compatible agent)
-that scans your workspace, understands it, and emits a single self-contained HTML file you
-can share, ship as docs, attach to a PR, or paste into onboarding material.
+arcmap is an AI-agent skill (for Claude Code, OpenAI Codex, GitHub Copilot, Cursor, Aider,
+or any compatible agent) that scans your workspace, understands it, and emits a single
+self-contained HTML file you can share, ship as docs, attach to a PR, or paste into
+onboarding material.
 
 ---
 
@@ -72,15 +74,48 @@ git clone https://github.com/illicitus79/arcmap-skill.git ~/.claude/skills/arcma
 /arcmap
 ```
 
+### With OpenAI Codex (CLI)
+
+Codex CLI picks up reusable prompts from `~/.codex/prompts/`. Install arcmap as a
+custom prompt:
+
+```bash
+# clone the skill somewhere you'll keep it
+git clone https://github.com/illicitus79/arcmap-skill.git ~/.codex/skills/arcmap
+
+# expose it as the /arcmap custom prompt
+mkdir -p ~/.codex/prompts
+ln -s ~/.codex/skills/arcmap/SKILL.md ~/.codex/prompts/arcmap.md   # macOS/Linux
+# Windows (PowerShell, admin):
+# New-Item -ItemType SymbolicLink -Path $HOME\.codex\prompts\arcmap.md -Target $HOME\.codex\skills\arcmap\SKILL.md
+```
+
+Then in any workspace:
+
+```
+codex
+> /arcmap
+```
+
+Alternatively, for a single repo, drop the instructions into `AGENTS.md` at the repo
+root (Codex auto-loads it) or pipe SKILL.md as context:
+
+```bash
+codex exec "$(cat ~/.codex/skills/arcmap/SKILL.md) Please execute /arcmap for this workspace."
+```
+
 ### With GitHub Copilot (VS Code)
 
 Add arcmap to your agent's skill configuration and invoke `/arcmap`. See
 [Copilot custom instructions docs](https://docs.github.com/en/copilot/customizing-copilot).
+Alternatively, copy `SKILL.md` contents into `.github/copilot-instructions.md` in your
+repo and Copilot will honour `/arcmap` as a task description.
 
-### With Cursor, Windsurf, or any agent that understands skills
+### With Cursor, Windsurf, Aider, or any agent that understands skills
 
 Point your agent at this repo's `SKILL.md` and ask it to run `/arcmap`. The skill is
-self-describing — the agent reads the steps and executes them.
+self-describing — the agent reads the steps and executes them. For Cursor specifically,
+you can drop `SKILL.md` into `.cursor/rules/arcmap.mdc`.
 
 ### Manual (no agent)
 
