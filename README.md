@@ -32,7 +32,7 @@ Clicking any project, file, or connection opens a slide-in detail panel showing:
 Install this skill:
 
 ```bash
-npx skills add iWhite/arcmap -g
+npx skills add illicitus79/arcmap-skill -g
 ```
 
 Then in any workspace, type:
@@ -54,7 +54,7 @@ Point the agent at `SKILL.md` in this repository and invoke:
 Clone this repo anywhere and add the path to your agent's skill configuration:
 
 ```bash
-git clone https://github.com/your-username/arcmap.git ~/.agents/skills/arcmap
+git clone https://github.com/illicitus79/arcmap-skill.git ~/.agents/skills/arcmap-skill
 ```
 
 ---
