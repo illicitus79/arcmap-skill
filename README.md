@@ -64,30 +64,60 @@ Plus everywhere:
 
 ## How to use
 
+arcmap ships as a **bundle of three files** that must live together:
+
+| File | Purpose |
+|---|---|
+| [SKILL.md](SKILL.md) | Instructions the agent follows when `/arcmap` is invoked |
+| [template/map.html](template/map.html) | Self-contained HTML template with a `{{DATA_JSON}}` placeholder |
+| [schema/data.schema.json](schema/data.schema.json) | JSON Schema used to validate the generated data |
+
+Every install below clones all three into a single directory so the agent can find the
+template alongside the instructions. `npx degit` downloads a clean copy without the
+`.git` folder — it's a one-liner replacement for `git clone`.
+
+---
+
 ### With Claude Code (recommended)
 
-```bash
-# install the skill globally
-git clone https://github.com/illicitus79/arcmap-skill.git ~/.claude/skills/arcmap
+Claude Code's skills system picks up any `~/.claude/skills/<name>/SKILL.md` and bundles
+sibling files automatically.
 
-# then in any workspace, type
+```bash
+npx degit illicitus79/arcmap-skill ~/.claude/skills/arcmap
+```
+
+Then in any workspace:
+
+```
 /arcmap
 ```
 
+To install per-project instead: `npx degit illicitus79/arcmap-skill .claude/skills/arcmap`.
+
+---
+
 ### With OpenAI Codex (CLI)
 
-Codex CLI picks up reusable prompts from `~/.codex/prompts/`. Install arcmap as a
-custom prompt:
+Codex CLI's custom prompts (`~/.codex/prompts/*.md`) are slash commands — but they're
+pure text, with no colocated-resource convention. The install therefore **downloads the
+bundle separately** and **creates a small prompt that points Codex at it**:
 
 ```bash
-# clone the skill somewhere you'll keep it
-git clone https://github.com/illicitus79/arcmap-skill.git ~/.codex/skills/arcmap
+# 1. Download the bundle (SKILL.md + template/ + schema/) to a stable location
+npx degit illicitus79/arcmap-skill ~/.codex/skills/arcmap
 
-# expose it as the /arcmap custom prompt
+# 2. Register the /arcmap slash command as a wrapper that tells Codex where to look
 mkdir -p ~/.codex/prompts
-ln -s ~/.codex/skills/arcmap/SKILL.md ~/.codex/prompts/arcmap.md   # macOS/Linux
-# Windows (PowerShell, admin):
-# New-Item -ItemType SymbolicLink -Path $HOME\.codex\prompts\arcmap.md -Target $HOME\.codex\skills\arcmap\SKILL.md
+cat > ~/.codex/prompts/arcmap.md <<'EOF'
+Run the arcmap architecture-map generator.
+
+1. Read the full skill instructions at ~/.codex/skills/arcmap/SKILL.md and follow every step.
+2. When generating the HTML, use the template at ~/.codex/skills/arcmap/template/map.html
+   (replace the single `{{DATA_JSON}}` placeholder — do not regenerate the template).
+3. Validate the DATA object against ~/.codex/skills/arcmap/schema/data.schema.json before injecting.
+4. Write the result to ./docs/project-map.html in the current workspace.
+EOF
 ```
 
 Then in any workspace:
@@ -97,31 +127,81 @@ codex
 > /arcmap
 ```
 
-Alternatively, for a single repo, drop the instructions into `AGENTS.md` at the repo
-root (Codex auto-loads it) or pipe SKILL.md as context:
+**Windows (PowerShell):**
 
-```bash
-codex exec "$(cat ~/.codex/skills/arcmap/SKILL.md) Please execute /arcmap for this workspace."
+```powershell
+npx degit illicitus79/arcmap-skill $HOME\.codex\skills\arcmap
+New-Item -ItemType Directory -Force -Path $HOME\.codex\prompts | Out-Null
+@'
+Run the arcmap architecture-map generator.
+1. Read ~/.codex/skills/arcmap/SKILL.md and follow every step.
+2. Use the template at ~/.codex/skills/arcmap/template/map.html (replace {{DATA_JSON}}).
+3. Validate against ~/.codex/skills/arcmap/schema/data.schema.json.
+4. Write docs/project-map.html in the current workspace.
+'@ | Out-File -Encoding utf8 $HOME\.codex\prompts\arcmap.md
 ```
+
+**One-shot, no install:** `codex exec "Clone https://github.com/illicitus79/arcmap-skill into /tmp/arcmap then follow /tmp/arcmap/SKILL.md against the current workspace."`
+
+---
 
 ### With GitHub Copilot (VS Code)
 
-Add arcmap to your agent's skill configuration and invoke `/arcmap`. See
-[Copilot custom instructions docs](https://docs.github.com/en/copilot/customizing-copilot).
-Alternatively, copy `SKILL.md` contents into `.github/copilot-instructions.md` in your
-repo and Copilot will honour `/arcmap` as a task description.
+Copilot Chat reads reusable prompts from `.github/prompts/*.prompt.md` in the workspace.
+Install arcmap **per-project** by vendoring the bundle into `.arcmap/` and registering
+a prompt file:
+
+```bash
+# 1. Vendor the bundle into the repo (SKILL.md + template/ + schema/)
+npx degit illicitus79/arcmap-skill .arcmap
+
+# 2. Register /arcmap as a Copilot prompt
+mkdir -p .github/prompts
+cat > .github/prompts/arcmap.prompt.md <<'EOF'
+---
+mode: agent
+description: Generate an interactive architecture map for this workspace
+---
+Read `.arcmap/SKILL.md` and follow every step.
+Use the template at `.arcmap/template/map.html` (replace the `{{DATA_JSON}}` placeholder).
+Validate the DATA object against `.arcmap/schema/data.schema.json`.
+Write the result to `docs/project-map.html`.
+EOF
+
+# 3. (Optional) ignore the vendored skill from commits
+echo ".arcmap/" >> .gitignore
+```
+
+Then in Copilot Chat:
+
+```
+/arcmap
+```
+
+> **Note:** `.github/prompts/` requires VS Code with the Copilot prompt-files feature
+> enabled. If your version doesn't support it, you can instead tell Copilot in chat:
+> *"Follow the instructions in `.arcmap/SKILL.md` to generate an architecture map."*
+
+---
 
 ### With Cursor, Windsurf, Aider, or any agent that understands skills
 
-Point your agent at this repo's `SKILL.md` and ask it to run `/arcmap`. The skill is
-self-describing — the agent reads the steps and executes them. For Cursor specifically,
-you can drop `SKILL.md` into `.cursor/rules/arcmap.mdc`.
+```bash
+# Cursor — project-level rules
+npx degit illicitus79/arcmap-skill .cursor/rules/arcmap
+
+# Windsurf / Aider / generic — clone anywhere and point the agent at SKILL.md
+npx degit illicitus79/arcmap-skill .arcmap
+```
+
+The skill is self-describing — any agent with filesystem tools can read `SKILL.md`,
+`template/map.html`, and `schema/data.schema.json` and execute the steps.
 
 ### Manual (no agent)
 
 ```bash
-git clone https://github.com/illicitus79/arcmap-skill.git
-# Open template/map.html, replace {{DATA_JSON}} with a DATA object matching schema/data.schema.json
+npx degit illicitus79/arcmap-skill ./arcmap
+# Open arcmap/template/map.html, replace {{DATA_JSON}} with a DATA object matching arcmap/schema/data.schema.json
 ```
 
 ---
