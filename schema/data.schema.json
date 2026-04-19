@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "arcmap Data Schema",
-  "description": "Schema for the DATA JSON injected into the arcmap HTML template.",
+  "description": "Schema for the DATA JSON injected into the arcmap HTML template. All fields beyond the required core are optional — partial or shallow maps are valid.",
   "type": "object",
   "required": ["meta", "architecture", "projects", "connections"],
   "properties": {
@@ -12,6 +12,9 @@
         "project":       { "type": "string", "description": "Human-readable project/workspace name" },
         "generated":     { "type": "string", "format": "date", "description": "ISO date of generation (YYYY-MM-DD)" },
         "description":   { "type": "string" },
+        "repository":    { "type": "string", "description": "Repository URL (optional, used for links)" },
+        "monorepo":      { "type": "string", "description": "Monorepo tool if applicable: nx, turborepo, pnpm, yarn, lerna, bazel, cargo, gradle, go-workspaces" },
+        "primaryStack":  { "type": "array", "items": { "type": "string" }, "description": "Detected primary languages/frameworks (e.g. ['C#/.NET', 'Next.js', 'Flutter'])" },
         "totalFiles":    { "type": "integer", "minimum": 0 },
         "totalProjects": { "type": "integer", "minimum": 0 }
       }
@@ -35,8 +38,13 @@
     },
     "infraComponents": {
       "type": "array",
-      "description": "External/infrastructure components (databases, queues, observability, etc.)",
+      "description": "External/infrastructure components (databases, queues, observability, SaaS, etc.)",
       "items": { "$ref": "#/definitions/InfraComponent" }
+    },
+    "envVars": {
+      "type": "array",
+      "description": "Optional audit of environment variables read by the codebase",
+      "items": { "$ref": "#/definitions/EnvVar" }
     }
   },
   "definitions": {
@@ -55,7 +63,7 @@
       "properties": {
         "from":        { "type": "string", "description": "Project ID, infraComponent ID, or free-text source name" },
         "to":          { "type": "string", "description": "Project ID, infraComponent ID, or free-text sink name" },
-        "protocol":    { "type": "string", "description": "e.g. HTTP REST, AMQP, Direct DI, gRPC, WebSocket, File Import" },
+        "protocol":    { "type": "string", "description": "e.g. HTTP REST, AMQP, Direct DI, gRPC, WebSocket, File Import, GraphQL, tRPC, SSE, Webhook" },
         "description": { "type": "string" }
       }
     },
@@ -63,27 +71,34 @@
       "type": "object",
       "required": ["id", "name", "shortName", "type", "color", "description"],
       "properties": {
-        "id":          { "type": "string", "description": "Unique identifier, typically the project folder/namespace name" },
+        "id":          { "type": "string", "description": "Unique identifier, typically the project folder/namespace/package name" },
         "name":        { "type": "string" },
         "shortName":   { "type": "string", "description": "2–3 word display name for UI labels" },
         "type": {
           "type": "string",
-          "enum": ["api", "library", "worker", "frontend", "mobile", "desktop", "cli", "test"]
+          "description": "Project role. Common values: api, service, library, worker, scheduler, frontend, mobile, desktop, cli, gateway, bff, test, infra, data, docs. Renderer accepts any string but styles the listed ones specially.",
+          "examples": ["api", "library", "worker", "frontend", "mobile", "desktop", "cli", "gateway", "bff", "scheduler", "test"]
         },
-        "technology":  { "type": "string", "description": "e.g. C# / .NET 9, Next.js 15 / TypeScript" },
+        "technology":  { "type": "string", "description": "Framework + runtime (e.g. C# / .NET 9, Next.js 15 / TypeScript, Django 5 / Python, Rails 7 / Ruby)" },
+        "language":    { "type": "string", "description": "Primary language (C#, TypeScript, Python, Go, Rust, Java, Kotlin, Ruby, PHP, Elixir, Swift, Dart)" },
+        "framework":   { "type": "string", "description": "Primary framework if applicable" },
         "port":        { "type": ["integer", "string", "null"], "description": "HTTP listening port if applicable" },
         "database":    { "type": ["string", "null"], "description": "Primary datastore (PostgreSQL, SQLite, MongoDB, …)" },
         "color":       { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "description": "Hex color for UI accent" },
         "icon": {
           "type": "string",
-          "enum": ["cube", "cog", "server", "refresh", "database", "globe", "clock", "mobile", "desktop", "browser"],
-          "description": "Icon key used by the template renderer"
+          "description": "Icon key used by the template renderer. One of: cube, cog, server, refresh, database, globe, clock, mobile, desktop, browser"
         },
         "description": { "type": "string" },
         "keyPatterns": {
           "type": "array",
           "items": { "type": "string" },
           "description": "Up to 5 notable architecture patterns or technologies"
+        },
+        "entrypoints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Known entry-point file paths (e.g. Program.cs, main.go, index.ts, manage.py)"
         },
         "files": {
           "type": "array",
@@ -98,8 +113,8 @@
         "path":        { "type": "string", "description": "Path relative to project root" },
         "category": {
           "type": "string",
-          "enum": ["Model", "Service", "Interface", "Endpoint", "Worker", "Contract", "Data",
-                   "Security", "Middleware", "Configuration", "Seeding", "Handler", "Messaging"]
+          "description": "File role. Common values listed in SKILL.md; the renderer colors the listed set. Arbitrary strings are permitted for extended taxonomies.",
+          "examples": ["Model", "Service", "Interface", "Endpoint", "Worker", "Contract", "Data", "Security", "Middleware", "Configuration", "Seeding", "Handler", "Messaging", "Test", "Component", "View", "Store", "Resolver", "Schema", "Migration", "Job"]
         },
         "description": { "type": "string" },
         "classes": {
@@ -110,10 +125,15 @@
           "type": "array",
           "items": { "$ref": "#/definitions/MethodEntry" }
         },
+        "endpoints": {
+          "type": "array",
+          "description": "Optional explicit HTTP/RPC endpoints exposed by this file. Populated for Endpoint category files when detectable.",
+          "items": { "$ref": "#/definitions/Endpoint" }
+        },
         "dependencies": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Names of files or interfaces this file depends on"
+          "description": "Names of files, modules, or interfaces this file depends on"
         },
         "usedBy": {
           "type": "array",
@@ -129,7 +149,7 @@
         "name":        { "type": "string" },
         "type": {
           "type": "string",
-          "description": "e.g. class, interface, enum, record, abstract class, sealed class, static class"
+          "description": "Type kind. Common values: class, interface, enum, record, abstract class, sealed class, static class, trait, struct, union, type, module. Arbitrary strings permitted."
         },
         "description": { "type": "string" }
       }
@@ -143,6 +163,16 @@
         "description": { "type": "string" }
       }
     },
+    "Endpoint": {
+      "type": "object",
+      "required": ["method", "path"],
+      "properties": {
+        "method":      { "type": "string", "description": "HTTP verb or RPC tag: GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD, SUBSCRIBE, QUERY, MUTATION, ANY" },
+        "path":        { "type": "string", "description": "Route path, e.g. /api/orders/{id}" },
+        "description": { "type": "string" },
+        "auth":        { "type": "string", "description": "Auth requirement if any (e.g. JWT, ApiKey, Public)" }
+      }
+    },
     "Connection": {
       "type": "object",
       "required": ["from", "to", "type", "label", "description"],
@@ -151,8 +181,7 @@
         "to":          { "type": "string", "description": "Target project ID or infraComponent ID" },
         "type": {
           "type": "string",
-          "enum": ["http", "di", "reference", "amqp", "grpc", "websocket", "file"],
-          "description": "Connection protocol/relationship type"
+          "description": "Connection protocol/relationship type. Recognised values with styled edges: http, di, reference, amqp, grpc, websocket, file, graphql, trpc, sse, shared-db, env, webhook. Arbitrary strings permitted but render in neutral grey."
         },
         "label":       { "type": "string", "description": "Short edge label shown on graph and diagram" },
         "description": { "type": "string" }
@@ -168,11 +197,20 @@
         "subtitle": { "type": "string", "description": "Short detail line (e.g. AMQP · :5672)" },
         "category": {
           "type": "string",
-          "enum": ["messaging", "database", "cache", "observability", "storage", "auth", "gateway", "erp", "external"],
-          "description": "Component category for grouping in the infra diagram"
+          "description": "Component category for grouping. Common values: messaging, database, cache, observability, storage, auth, gateway, erp, external, queue, search, llm, payments, mail, cdn, serverless, orchestrator."
         },
         "color":    { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
         "notes":    { "type": "string", "description": "How this component is used by the system" }
+      }
+    },
+    "EnvVar": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name":        { "type": "string", "description": "Environment variable name" },
+        "usedBy":      { "type": "array", "items": { "type": "string" }, "description": "Project IDs that reference this variable" },
+        "description": { "type": "string" },
+        "secret":      { "type": "boolean", "description": "True if the value is sensitive (token, secret, password)" }
       }
     }
   }
