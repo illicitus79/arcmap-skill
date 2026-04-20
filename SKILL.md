@@ -456,12 +456,18 @@ If time permits and the repo has clear env usage:
 ### STEP 9 — Generate the HTML File
 
 1. Read `template/map.html` from this skill's folder.
-2. Replace the single placeholder `{{DATA_JSON}}` with the serialised JSON.
-3. Write the result to `<workspace-root>/docs/project-map.html` (or `--out` path).
+2. Serialise the DATA object to JSON (`JSON.stringify(data, null, 2)`).
+3. Replace the single placeholder `{{DATA_JSON}}` with that JSON string.
+4. Write the result to `<workspace-root>/docs/project-map.html` (or `--out` path).
 
-**Safety — always escape `</script>` sequences** in string values before injection, e.g. by
-using `JSON.stringify(data).replace(/<\/(script)/gi, '<\\/$1')`. The renderer HTML-escapes
-field values, but inline `</script>` in raw JSON would still break parsing.
+**How the template embeds data (no special escaping needed):**
+The placeholder `{{DATA_JSON}}` lives inside a `<textarea>` element, **not** inside a
+`<script>` block. Because browsers never scan `<textarea>` content for HTML tags, the
+string `</script>` inside any JSON value is completely harmless. You do NOT need to
+pre-process or escape the JSON before substitution — plain `JSON.stringify` output is safe.
+
+The only sequence that would break the textarea is `</textarea>`. This is vanishingly
+unlikely in real project data, but if it does appear, replace it with `<\/textarea>`.
 
 If the template file is not available (skill installed without template), reproduce it
 from the **HTML Template Specification** below.
@@ -525,8 +531,13 @@ Monospace: `'Cascadia Code', 'Fira Code', monospace`
 Output must be **fully self-contained** — no CDN, no `fetch()`, no external image URLs.
 
 ```html
+<!-- Data lives in a <textarea>, NOT in a <script> block.
+     This means </script> anywhere in the JSON is harmless. -->
+<textarea id="__arcmap_data__" style="display:none" aria-hidden="true">
+{ /* full JSON here */ }
+</textarea>
 <script>
-const DATA = { /* full JSON here */ };
+const DATA = JSON.parse(document.getElementById('__arcmap_data__').value);
 </script>
 ```
 
